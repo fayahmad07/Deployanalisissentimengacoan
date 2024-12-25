@@ -1,7 +1,7 @@
 streamlit
 pandas
-numpy
-nltk
-googletrans==4.0.0-rc1
-emoji
 scikit-learn
+joblib
+matplotlib
+wordcloud
+xgboost
