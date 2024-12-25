@@ -17,12 +17,16 @@ def predict_sentiment(text):
 
 def visualize_wordcloud(data):
     """Fungsi untuk visualisasi WordCloud."""
+    # Pastikan data tidak mengandung NaN dan konversi semua entri menjadi string
+    valid_data = data.dropna().astype(str)
+    combined_text = ' '.join(valid_data)
     wc = WordCloud(width=800, height=400, background_color='white')
     fig, ax = plt.subplots()
-    wordcloud = wc.generate(' '.join(data))
+    wordcloud = wc.generate(combined_text)
     ax.imshow(wordcloud, interpolation='bilinear')
     ax.axis('off')
     st.pyplot(fig)
+
 
 def visualize_pie_chart(sentiments):
     """Fungsi untuk visualisasi pie chart distribusi sentimen."""
