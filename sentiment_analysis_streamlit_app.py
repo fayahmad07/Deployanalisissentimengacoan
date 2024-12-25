@@ -1,70 +1,70 @@
-
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from wordcloud import WordCloud
-from sklearn.ensemble import RandomForestRegressor
 import numpy as np
+import re
+from sklearn.feature_extraction.text import CountVectorizer
+from nltk.stem import PorterStemmer
+from nltk.corpus import stopwords
+from googletrans import Translator
+import emoji
 
-# Dictionary for text normalization
-replacements = {
-    'gmna': 'bagaimana', 'yng': 'yang', 'jgn': 'jangan', 'tdk': 'tidak', 'aja': 'saja',
-    'udh': 'sudah', 'lg': 'lagi', 'dg': 'dengan', 'tp': 'tapi', 'sm': 'sama', 'klo': 'kalau',
-    'krn': 'karena', 'bgt': 'banget', 'utk': 'untuk', 'blm': 'belum', 'gk': 'tidak',
-    'dgn': 'dengan', 'ny': 'nya', 'gw': 'saya', 'yg': 'yang', 'n': 'dan', 'lu': 'kamu',
-    'gue': 'saya', 'lo': 'kamu', 'trus': 'terus', 'kl': 'kalau', 'd': 'di', 'msh': 'masih',
-    'bnyk': 'banyak', 'jg': 'juga', 'dlu': 'dulu', 'dll': 'dan lain-lain', 'bs': 'bisa'
-}
-
-# Function for text normalization
-def normalize_text(data):
-    data['text_column'] = data['text_column'].replace(replacements, regex=True)
+# Fungsi untuk mengatasi emoji
+def handle_emojis(data, column):
+    data[column] = data[column].apply(lambda text: emoji.demojize(text))
     return data
 
-# Function to impute missing values with RandomForest
-def impute_missing_values(data, target_column, predictor_columns):
-    train_data = data[data[target_column].notna()]
-    predict_data = data[data[target_column].isna()]
-
-    rf = RandomForestRegressor(random_state=42)
-    rf.fit(train_data[predictor_columns], train_data[target_column])
-    predicted_values = rf.predict(predict_data[predictor_columns])
-
-    data.loc[data[target_column].isna(), target_column] = predicted_values
+# Fungsi untuk membersihkan teks
+def clean_text(data, column):
+    data[column] = data[column].apply(lambda text: text.lower())  # Lowercase
+    data[column] = data[column].apply(lambda text: re.sub(r'[^\w\s]', '', text))  # Remove punctuation
+    data[column] = data[column].apply(lambda text: re.sub(r'\d+', '', text))  # Remove numbers
+    data[column] = data[column].apply(lambda text: re.sub(r'\s+', ' ', text).strip())  # Remove extra whitespaces
     return data
 
-# Sentiment analysis function (placeholder)
-def analyze_sentiment(data):
-    return np.random.choice(['Positive', 'Negative', 'Neutral'], size=len(data))
+# Fungsi untuk menghapus karakter non-latin (termasuk Jepang, Korea, Kanji)
+def remove_non_latin_characters(data, column):
+    data[column] = data[column].apply(lambda text: re.sub(r'[^\x00-\x7F]+', ' ', text))
+    return data
 
-# Main function for Streamlit app
+# Fungsi untuk translate teks ke Bahasa Inggris
+def translate_text(data, column):
+    translator = Translator()
+    data[column] = data[column].apply(lambda text: translator.translate(text, dest='en').text)
+    return data
+
+# Fungsi untuk mengatasi kata yang tidak bermakna, stop words, dan stemming
+def preprocess_text(data, column):
+    stemmer = PorterStemmer()
+    stop_words = set(stopwords.words('english'))
+    data[column] = data[column].apply(lambda text: ' '.join(stemmer.stem(word) for word in text.split() if word not in stop_words))
+    return data
+
+# Fungsi untuk vektorisasi teks
+def vectorize_text(data, column):
+    vectorizer = CountVectorizer()
+    vectors = vectorizer.fit_transform(data[column])
+    feature_names = vectorizer.get_feature_names_out()
+    return pd.DataFrame(vectors.toarray(), columns=feature_names)
+
+# Main function untuk aplikasi Streamlit
 def main():
-    st.title("Sentiment Analysis with CSV Upload")
-    uploaded_file = st.file_uploader("Choose a file", type="csv")
+    st.title("Comprehensive Text Preprocessing")
+    uploaded_file = st.file_uploader("Upload your CSV file", type='csv')
     if uploaded_file is not None:
         data = pd.read_csv(uploaded_file)
-
-        # Preprocessing
-        data = normalize_text(data)
-        data = impute_missing_values(data, 'your_target_column', ['your_predictor_columns'])
+        text_column = st.selectbox("Select column to process", options=data.columns)
         
-        # Sentiment Analysis
-        data['Sentiment'] = analyze_sentiment(data)
-
-        # Pie Chart Visualization
-        fig, ax = plt.subplots()
-        sentiment_counts = data['Sentiment'].value_counts()
-        ax.pie(sentiment_counts, labels=sentiment_counts.index, autopct='%1.1f%%', startangle=90)
-        ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-        st.pyplot(fig)
-
-        # Word Cloud
-        text = " ".join(word for word in data['text_column'])
-        wordcloud = WordCloud(background_color='white').generate(text)
-        plt.figure(figsize=(8, 4))
-        plt.imshow(wordcloud, interpolation='bilinear')
-        plt.axis("off")
-        st.pyplot()
+        # Preprocessing steps
+        data = handle_emojis(data, text_column)
+        data = clean_text(data, text_column)
+        data = remove_non_latin_characters(data, text_column)
+        data = translate_text(data, text_column)
+        data = preprocess_text(data, text_column)
+        vectors = vectorize_text(data, text_column)
+        
+        st.write("Processed Data:", vectors.head())
+        # Option to download the processed data as CSV
+        st.download_button("Download Processed CSV", data.to_csv().encode('utf-8'), "text/csv", "processed_data.csv")
 
 if __name__ == "__main__":
     main()
