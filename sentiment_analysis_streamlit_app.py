@@ -15,6 +15,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import xgboost as xgb
 from wordcloud import WordCloud
 warnings.filterwarnings("ignore")
+
 # Initialize translator and stemmer
 translator = Translator()
 google_translator = GoogleTranslator(source='en', target='id')
